@@ -1,6 +1,47 @@
 //authentication business logic
 
 //Password Hashing
+//Simple Hashing
+//Same Input = Same Output
+// Suppose attacker already knows:
+// hello123 → a6f9...
+// Now if they see:
+// a6f9...
+// in database,
+// they immediately know:
+// Password = hello123
+// This is called a rainbow table attack.
+// bcrypt Solution: Salt
+
+// Before hashing, bcrypt creates a random string called a salt.
+// bcrypt output string
+//     ↓
+// contains
+//     ↓
+// Version + Cost + Salt + Hash
+// salt -> It's encoded into a text format that bcrypt understands.
+
+//register
+// Password
+//    ↓
+// Add Random Salt
+//    ↓
+// Make Hashing Expensive
+//    ↓
+// Store Hash
+
+//login
+// Entered Password
+//    ↓
+// Extract Salt From Stored Hash
+//    ↓
+// Hash Again the entered password
+//    ↓
+// Compare both password hashes
+
+
+
+
 const bcrypt = require('bcryptjs');
 
 //Token Generation
