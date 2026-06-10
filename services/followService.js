@@ -34,21 +34,21 @@ async function followUser(followerId, followingId) {
 }
 
 async function unfollowUser(followerId, followingId) {
-  const deleted = await Follow.findOneAndDelete({ followerId, followingId });
+  const deleted = await Follow.findOneAndDelete({ followerId, followingId });// follow relationship is deleted
   if (!deleted) {
     throw new AppError('Follow relationship was not found', 404);
   }
 
   await Promise.all([
-    User.updateOne({ _id: followerId }, { $inc: { followingCount: -1 } }),
-    User.updateOne({ _id: followingId }, { $inc: { followersCount: -1 } }),
+    User.updateOne({ _id: followerId }, { $inc: { followingCount: -1 } }),//user's followingCount is decremented by 1
+    User.updateOne({ _id: followingId }, { $inc: { followersCount: -1 } }),//target user's followersCount is decremented by 1
   ]);
 
   // Remove pushed entries from the unfollowed author so future push feeds stay personalized.
   //   Delete records whose
   // postId is any of these.
-  const authorPosts = await Post.find({ authorId: followingId }).select('_id');
-  await Feed.deleteMany({ userId: followerId, postId: { $in: authorPosts.map((post) => post._id) } });
+  const authorPosts = await Post.find({ authorId: followingId }).select('_id');//post related to the unfollowed user is fetched. 
+  await Feed.deleteMany({ userId: followerId, postId: { $in: authorPosts.map((post) => post._id) } });//feed entries related to those posts are deleted from the follower's feed. This ensures that the unfollowed user's posts no longer appear in the follower's feed, maintaining a personalized experience.
 
   return deleted;
 }
