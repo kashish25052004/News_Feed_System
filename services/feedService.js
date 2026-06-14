@@ -176,6 +176,147 @@ async function getPullFeed(userId, { cursor, limit } = {}) {
   };
 }
 
+// Step 1:
+// Get Push Feed
+// (from Feed collection)
 
+// Step 2:
+// Get Celebrity Posts
+// (from Post collection)
+
+// Step 3:
+// Rank Celebrity Posts
+
+// Step 4:
+// Merge both
+
+// Step 5:
+// Sort Again
+
+// Step 6:
+// Return final feed
+
+async function getHybridFeed(userId, options = {}) {
+  const pageSize = normalizeLimit(options.limit);
+  const threshold = getCelebrityThreshold();
+  const follows = await Follow.find({ followerId: userId }).select('followingId');
+  const followingIds = follows.map((follow) => follow.followingId);
+
+  if (followingIds.length === 0) {
+    return { strategy: 'hybrid', items: [], nextCursor: null };
+  }
+
+  const celebrities = await User.find({
+    _id: { $in: followingIds },
+    followersCount: { $gte: threshold },
+  }).select('_id');
+  const celebrityIds = celebrities.map((user) => user._id);
+
+  //getpushfeed and post.fond work together parallely
+  const [pushFeed, celebrityPosts] = await Promise.all([
+    getPushFeed(userId, { limit: pageSize * 2 }),
+    Post.find({ authorId: { $in: celebrityIds } })
+      .populate('authorId', 'username followersCount')
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(pageSize * 5), // why *5 bacause imagine pagesize = 20 ,post num 20 is having a score of 0.5 , and post num 25 having a score of 0.8 , if we take only pagesize num of post then we miss some posts of which has high score 
+      //as inside post we are not able to save the score , as post has one author, diffrent post , diffrent score based on diffrent viwerid 
+  ]);
+  //push logic main toh feed main score already rehta hai , but pull ke liye hum quesry post schema se karte hai and vaha score nhi nikala ja sakta hai thats why pull karne ke bad ranking karni hogi
+  const rankedCelebrityPosts = await rankPosts(celebrityPosts, userId);
+
+  // Why use Map? Because: One key can exist only once.
+  const mergedByPostId = new Map(); // just like map in c++
+
+
+  pushFeed.items.forEach((item) => {
+    if (item.post) {
+      mergedByPostId.set(item.post.id || item.post._id.toString(), item);
+    }
+  });
+
+  rankedCelebrityPosts.forEach(({ post, score }) => {
+    mergedByPostId.set(post._id.toString(), { post, score, createdAt: post.createdAt });
+  });
+
+  // Because Map stores:key -> value
+  //we need values, so we use array , convert map to array
+  const merged = Array.from(mergedByPostId.values()).sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const filtered = merged.filter((item) =>
+    isAfterScoreCursor(
+      {
+        score: item.score,
+        createdAt: item.createdAt,
+        id: item.id || item.post.id || item.post._id,
+      },
+      options.cursor,
+    ),
+  );
+
+  const page = filtered.slice(0, pageSize);
+  const last = page[page.length - 1];
+
+  return {
+    strategy: 'hybrid',
+    items: page,
+    nextCursor:
+      filtered.length > pageSize
+        ? encodeCursor({
+            score: last.score,
+            createdAt: last.createdAt,
+            id: last.id || last.post.id || last.post._id.toString(),
+          })
+        : null,
+  };
+}
+
+async function getFeed(userId, strategy, options = {}) {
+  if (strategy === 'pull') {
+    return getPullFeed(userId, options);
+  }
+
+  if (strategy === 'push') {
+    return getPushFeed(userId, options);
+  }
+
+  return getHybridFeed(userId, options);
+}
+
+module.exports = {
+  getFeed,
+  getHybridFeed,
+  getPullFeed,
+  getPushFeed,
+  pushPostToFollowers,
+};
+
+
+// operations
+
+// is not inserting anything.
+
+// It is only building instructions.
+
+// Like:
+
+// Instruction 1:
+// Update Kashish feed
+
+// Instruction 2:
+// Update Amit feed
+
+// Instruction 3:
+// Update Rohit feed
+
+// Then:
+
+// Feed.bulkWrite(operations)
+
+// actually sends all those instructions to MongoDB at once.
 
 
