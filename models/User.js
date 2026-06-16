@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
     username: {
       type: String,
       required: true,
-      unique: true,
+      unique: true,// tell mongoose to create a unique index on username
       trim: true,
       minlength: 3,
       maxlength: 30,
@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true,
+      unique: true,// tell mongoose to create a unique index on email
       trim: true,
       lowercase: true,
     },
@@ -88,8 +88,6 @@ const userSchema = new mongoose.Schema(
 // 1  → Ascending
 // -1 → Descending
 
-userSchema.index({ username: 1 }, { unique: true });
-userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ followersCount: -1 });
 
 module.exports = mongoose.model('User', userSchema);
